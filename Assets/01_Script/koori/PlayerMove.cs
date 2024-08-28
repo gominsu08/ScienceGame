@@ -1,11 +1,22 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
-using static UnityEngine.GraphicsBuffer;
 
 public class PlayerMove : MonoBehaviour
 {
-    [SerializeField] private float _nowPower;
+    private float _nowPower = 1;
+    public float NowPower
+    {
+        get { return _nowPower; }
+        set
+        {
+            if (value > 0f)
+                _nowPower = value;
+            else
+            {
+                _nowPower = 0.1f;
+            }
+        }
+    }
+
     [SerializeField] private float _decelerationRate = 0.5f; // 감속 비율
     [SerializeField] private LineRenderer _lineRenderer; // 라인 렌더러
     [SerializeField] private GameObject _cam;
@@ -48,7 +59,7 @@ public class PlayerMove : MonoBehaviour
             _cam.transform.position = Vector3.Lerp(_cam.transform.position, targetPosition, Time.deltaTime * _smoothSpeed);
 
             // 플레이어 위치를 기준으로 카메라 줌 조정
-            float targetSize = 5 / _nowPower;
+            float targetSize = 5 / NowPower;
             _camCompo.orthographicSize = Mathf.Lerp(_camCompo.orthographicSize, targetSize, Time.deltaTime * _smoothSpeed);
         }
     }
@@ -90,7 +101,7 @@ public class PlayerMove : MonoBehaviour
         }
         else if (Input.GetMouseButtonUp(0)) // 마우스 버튼을 땠을 때 Shot() 호출
         {
-            if (!(_nowPower <= 0))
+            if (!(NowPower <= 0))
             {
                 Shot();
             }
@@ -103,24 +114,24 @@ public class PlayerMove : MonoBehaviour
         Vector3 currentPos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
         currentPos.z = 0f; // Z축 값 고정
 
-        _nowPower = (currentPos - _startPos).magnitude;
+        NowPower = (currentPos - _startPos).magnitude;
         _dir = -(currentPos - _startPos).normalized; // 방향 벡터 계산
 
         // 예상 이동 거리 계산
-        float predictedDistance = CalculatePredictedDistance(_nowPower);
+        float predictedDistance = CalculatePredictedDistance(NowPower);
 
         // 라인 렌더러 업데이트
         _lineRenderer.SetPosition(0, transform.position);
         _lineRenderer.SetPosition(1, transform.position + _dir * predictedDistance);
 
         //카메라 줌 (부드럽게)
-        _camCompo.orthographicSize = Mathf.Lerp(_camCompo.orthographicSize, (5 / _nowPower), Time.deltaTime * _smoothSpeed);
+        _camCompo.orthographicSize = Mathf.Lerp(_camCompo.orthographicSize, (5 / NowPower), Time.deltaTime * _smoothSpeed);
     }
 
     private void Shot()
     {
-        _rb.AddForce(_dir * _nowPower, ForceMode2D.Impulse);
-        _nowPower = 0; // 파워 초기화
+        _rb.AddForce(_dir * NowPower, ForceMode2D.Impulse);
+        NowPower = 0; // 파워 초기화
         _isMoving = true; // 움직임 시작
     }
 
