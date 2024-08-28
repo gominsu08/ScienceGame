@@ -40,6 +40,7 @@ public class InteractionUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
     public void ChangeScene()
     {
         SceneManager.LoadScene(_sceneName);
+        Time.timeScale = 1;
     }
 
     public void Quit()
@@ -47,5 +48,5 @@ public class InteractionUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
         Application.Quit();
     }
 
-    
+
 }

@@ -28,20 +28,27 @@ public class GameManager : MonoSinglton<GameManager>
 
     public void ESC()
     {
-        if(!_isMove) return;
+        if (!_isMove) return;
 
         if (!_isESC)
         {
             _isMove = false;
-            _escPanel.DOAnchorPos(Vector2.zero, _time).OnComplete(() => _isMove = true);
+            _escPanel.DOAnchorPos(Vector2.zero, _time).OnComplete(() =>
+            {
+                _isMove = true;
+                
+            });
         }
         else
         {
             _isMove = false;
-            _escPanel.DOAnchorPos(new Vector2(0, _startPosition), _time).OnComplete( () => _isMove = true);
+            _escPanel.DOAnchorPos(new Vector2(0, _startPosition), _time).OnComplete(() =>
+            {
+                _isMove = true;
+            });
         }
-
         _isESC = !_isESC;
+
     }
 
 
