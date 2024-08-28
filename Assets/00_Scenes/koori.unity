@@ -154,7 +154,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b4b7544220de3684fb6086f358023093, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _nowPower: 0
   _decelerationRate: 0.5
   _lineRenderer: {fileID: 1159754378}
   _cam: {fileID: 1432414103}

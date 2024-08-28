@@ -1,6 +1,8 @@
+using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
-public class PlayerMove : MonoBehaviour
+public class TestPlayer : MonoBehaviour
 {
     private float _nowPower = 1;
     public float NowPower
@@ -19,9 +21,6 @@ public class PlayerMove : MonoBehaviour
 
     [SerializeField] private float _decelerationRate = 0.5f; // 감속 비율
     [SerializeField] private LineRenderer _lineRenderer; // 라인 렌더러
-    [SerializeField] private GameObject _cam;
-    [SerializeField] private float _smoothSpeed = 5f; // 카메라 이동 부드러움 조절
-    private Camera _camCompo;
     private Vector3 _startPos;
     private Vector3 _dir;
     private Rigidbody2D _rb;
@@ -29,7 +28,6 @@ public class PlayerMove : MonoBehaviour
 
     private void Awake()
     {
-        _camCompo = _cam.GetComponent<Camera>();
         _rb = GetComponent<Rigidbody2D>();
         _lineRenderer = _lineRenderer.GetComponent<LineRenderer>(); // 라인 렌더러 가져오기
         _lineRenderer.positionCount = 2; // 라인 렌더러의 점 개수 설정
@@ -44,25 +42,7 @@ public class PlayerMove : MonoBehaviour
         }
     }
 
-    private void LateUpdate()
-    {
-        if (_isMoving)
-        {
-            _camCompo.orthographicSize = Mathf.Lerp(_camCompo.orthographicSize, 2.5f, Time.deltaTime * _smoothSpeed); // 부드러운 줌
-            Vector3 vecTarget = new Vector3(transform.position.x, transform.position.y, -10);
-            _cam.transform.position = Vector3.Lerp(_cam.transform.position, vecTarget, Time.deltaTime * _smoothSpeed); // 부드러운 이동
-        }
-        else
-        {
-            // 플레이어 위치를 기준으로 카메라 위치 조정
-            Vector3 targetPosition = new Vector3(transform.position.x, transform.position.y, -10);
-            _cam.transform.position = Vector3.Lerp(_cam.transform.position, targetPosition, Time.deltaTime * _smoothSpeed);
-
-            // 플레이어 위치를 기준으로 카메라 줌 조정
-            float targetSize = 5 / NowPower;
-            _camCompo.orthographicSize = Mathf.Lerp(_camCompo.orthographicSize, targetSize, Time.deltaTime * _smoothSpeed);
-        }
-    }
+   
 
     private void FixedUpdate()
     {
@@ -78,10 +58,6 @@ public class PlayerMove : MonoBehaviour
                 // 속도가 0에 가까워지면 멈춤
                 _rb.velocity = Vector2.zero;
                 _isMoving = false;
-
-                // 카메라 위치 및 줌 초기화
-                _cam.transform.position = new Vector3(0, 0, -10);
-                _camCompo.orthographicSize = 5f;
             }
         }
     }
@@ -124,8 +100,7 @@ public class PlayerMove : MonoBehaviour
         _lineRenderer.SetPosition(0, transform.position);
         _lineRenderer.SetPosition(1, transform.position + _dir * predictedDistance);
 
-        //카메라 줌 (부드럽게)
-        _camCompo.orthographicSize = Mathf.Lerp(_camCompo.orthographicSize, (5 / NowPower), Time.deltaTime * _smoothSpeed);
+        
     }
 
     private void Shot()
