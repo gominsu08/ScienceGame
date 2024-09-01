@@ -9,7 +9,7 @@ public class MapManager : MonoBehaviour
     public Transform startPosition, endPosition, createPosition;
 
 
-    private void Awake()
+    public void StartMap()
     {
         MapCreate();
     }
