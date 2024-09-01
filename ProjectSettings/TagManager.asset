@@ -48,3 +48,6 @@ TagManager:
   - name: Agent
     uniqueID: 3673628627
     locked: 0
+  - name: Player
+    uniqueID: 185004187
+    locked: 0

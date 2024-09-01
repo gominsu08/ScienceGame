@@ -11,7 +11,7 @@ public class Line : MonoBehaviour
 
     private void Start()
     {
-        _player = GameManager.Instance.player;
+        _player = UIGameManager.Instance.player;
     }
 
     private void OnTriggerEnter2D(Collider2D collision)
