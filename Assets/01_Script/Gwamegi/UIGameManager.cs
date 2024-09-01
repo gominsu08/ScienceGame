@@ -3,10 +3,11 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class GameManager : MonoSinglton<GameManager>
+public class UIGameManager : MonoSinglton<UIGameManager>
 {
 
     [SerializeField] private RectTransform _escPanel;
+    [SerializeField] private RectTransform _gameOverPanel;
     [SerializeField] private float _startPosition, _time;
     public GameObject player;
     private bool _isESC, _isMove = true;
@@ -51,5 +52,11 @@ public class GameManager : MonoSinglton<GameManager>
 
     }
 
+
+    public void GameOver()
+    {
+        _gameOverPanel.gameObject.SetActive(true);
+        Time.timeScale = 0;
+    }
 
 }
