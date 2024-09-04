@@ -1,146 +1,179 @@
+using Unity.VisualScripting;
 using UnityEngine;
+using UnityEngine.Events;
 
-public class PlayerMove : MonoBehaviour
+public class PlayerMovement : MonoBehaviour
 {
-    private float _nowPower = 1;
-    public float NowPower
-    {
-        get { return _nowPower; }
-        set
-        {
-            if (value > 0f)
-                _nowPower = value;
-            else
-            {
-                _nowPower = 0.1f;
-            }
-        }
-    }
+    public UnityEvent start;
+    public UnityEvent GameOverEvent;
 
-    [SerializeField] private float _decelerationRate = 0.5f; // 감속 비율
-    [SerializeField] private LineRenderer _lineRenderer; // 라인 렌더러
-    [SerializeField] private GameObject _cam;
-    [SerializeField] private float _smoothSpeed = 5f; // 카메라 이동 부드러움 조절
-    private Camera _camCompo;
-    private Vector3 _startPos;
-    private Vector3 _dir;
-    private Rigidbody2D _rb;
-    private bool _isMoving = false; // 움직이는 중인지 확인하는 변수
+    [Header("Movement Settings")]
+    [SerializeField] private float _maxLaunchForce = 5f;
+    [SerializeField] private float _launchForceMultiplier = 10f;
+    [SerializeField] private float _decelerationRate = 2f;
+
+    [Header("Ring Settings")]
+    [SerializeField] private LayerMask _ringLayer;
+    [SerializeField] private float _ringCheckRadius = 0.5f;
+
+    [Header("Visuals")]
+    [SerializeField] private LineRenderer _trajectoryLineRenderer;
+    [SerializeField] private GameObject _launchPositionIndicator;
+
+    private Rigidbody2D _rigidbody;
+    private Vector2 _launchStartPosition;
+    private bool _isDragging = false;
+    private bool _isLaunched = false;
+    private Transform _currentRing;
+
+    private bool _isStart;
 
     private void Awake()
     {
-        _camCompo = _cam.GetComponent<Camera>();
-        _rb = GetComponent<Rigidbody2D>();
-        _lineRenderer = _lineRenderer.GetComponent<LineRenderer>(); // 라인 렌더러 가져오기
-        _lineRenderer.positionCount = 2; // 라인 렌더러의 점 개수 설정
-        _lineRenderer.enabled = false; // 초기에는 라인 렌더러 비활성화
+        _rigidbody = GetComponent<Rigidbody2D>();
+        _trajectoryLineRenderer.positionCount = 2;
+        _trajectoryLineRenderer.enabled = false;
+
+        if (_launchPositionIndicator != null)
+        {
+            _launchPositionIndicator.SetActive(false);
+        }
     }
 
     private void Update()
     {
-        if (!_isMoving) // 움직이는 중이 아닐 때만 입력 체크
+        if (!_isLaunched)
         {
-            CheckClick();
+            HandleInput();
+            CheckForRing();
         }
-    }
 
-    private void LateUpdate()
-    {
-        if (_isMoving)
-        {
-            _camCompo.orthographicSize = Mathf.Lerp(_camCompo.orthographicSize, 2.5f, Time.deltaTime * _smoothSpeed); // 부드러운 줌
-            Vector3 vecTarget = new Vector3(transform.position.x, transform.position.y, -10);
-            _cam.transform.position = Vector3.Lerp(_cam.transform.position, vecTarget, Time.deltaTime * _smoothSpeed); // 부드러운 이동
-        }
-        else
-        {
-            // 플레이어 위치를 기준으로 카메라 위치 조정
-            Vector3 targetPosition = new Vector3(transform.position.x, transform.position.y, -10);
-            _cam.transform.position = Vector3.Lerp(_cam.transform.position, targetPosition, Time.deltaTime * _smoothSpeed);
-
-            // 플레이어 위치를 기준으로 카메라 줌 조정
-            float targetSize = 5 / NowPower;
-            _camCompo.orthographicSize = Mathf.Lerp(_camCompo.orthographicSize, targetSize, Time.deltaTime * _smoothSpeed);
-        }
+        CheckScreenBounds();
     }
 
     private void FixedUpdate()
     {
-        if (_isMoving)
+        if (_isLaunched)
         {
-            // 속도가 0보다 크면 감속
-            if (_rb.velocity.magnitude > 1)
-            {
-                _rb.velocity = Vector2.Lerp(_rb.velocity, Vector2.zero, _decelerationRate * Time.deltaTime);
-            }
-            else
-            {
-                // 속도가 0에 가까워지면 멈춤
-                _rb.velocity = Vector2.zero;
-                _isMoving = false;
-
-                // 카메라 위치 및 줌 초기화
-                _cam.transform.position = new Vector3(0, 0, -10);
-                _camCompo.orthographicSize = 5f;
-            }
+            ApplyDeceleration();
+            CheckForRing();
         }
     }
 
-    private void CheckClick()
+    private void HandleInput()
     {
         if (Input.GetMouseButtonDown(0))
         {
-            // 드래그 시작 지점 저장
-            _startPos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
-            _startPos.z = 0f; // Z축 값 고정
-            _lineRenderer.enabled = true; // 라인 렌더러 활성화
+            StartDragging();
         }
-        else if (Input.GetMouseButton(0))
+        else if (Input.GetMouseButton(0) && _isDragging)
         {
-            DragCount();
+            UpdateTrajectoryLine();
         }
-        else if (Input.GetMouseButtonUp(0)) // 마우스 버튼을 땠을 때 Shot() 호출
+        else if (Input.GetMouseButtonUp(0) && _isDragging)
         {
-            if (!(NowPower <= 0))
+            LaunchPlayer();
+            if (!_isStart)
+                start?.Invoke();
+            _isStart = true;
+        }
+    }
+
+    private void StartDragging()
+    {
+        _isDragging = true;
+        _launchStartPosition = Camera.main.ScreenToWorldPoint(Input.mousePosition);
+        _trajectoryLineRenderer.enabled = true;
+
+        if (_launchPositionIndicator != null)
+        {
+            _launchPositionIndicator.SetActive(true);
+            _launchPositionIndicator.transform.position = _launchStartPosition;
+        }
+    }
+
+    private void UpdateTrajectoryLine()
+    {
+        Vector2 currentMousePosition = Camera.main.ScreenToWorldPoint(Input.mousePosition);
+        Vector2 launchDirection = (_launchStartPosition - currentMousePosition).normalized;
+        float dragDistance = Vector2.Distance(_launchStartPosition, currentMousePosition);
+        float launchForce = Mathf.Clamp(dragDistance * _launchForceMultiplier, 0, _maxLaunchForce);
+
+        _trajectoryLineRenderer.SetPosition(0, transform.position);
+        _trajectoryLineRenderer.SetPosition(1, (Vector2)transform.position + launchDirection * launchForce);
+    }
+
+    private void LaunchPlayer()
+    {
+        _isDragging = false;
+        _trajectoryLineRenderer.enabled = false;
+
+        if (_launchPositionIndicator != null)
+        {
+            _launchPositionIndicator.SetActive(false);
+        }
+
+        Vector2 currentMousePosition = Camera.main.ScreenToWorldPoint(Input.mousePosition);
+        Vector2 launchDirection = (_launchStartPosition - currentMousePosition).normalized;
+        float dragDistance = Vector2.Distance(_launchStartPosition, currentMousePosition);
+        float launchForce = Mathf.Clamp(dragDistance * _launchForceMultiplier, 0, _maxLaunchForce);
+
+        _rigidbody.AddForce(launchDirection * launchForce, ForceMode2D.Impulse);
+        _currentRing = null;
+
+        // 여기에 추가!
+        _isLaunched = true;
+    }
+
+    private void ApplyDeceleration()
+    {
+        _rigidbody.velocity = Vector2.Lerp(_rigidbody.velocity, Vector2.zero, _decelerationRate * Time.fixedDeltaTime);
+
+        if (_rigidbody.velocity.magnitude < 0.01f)
+        {
+            _rigidbody.velocity = Vector2.zero;
+            _isLaunched = false;
+        }
+    }
+
+    private void CheckForRing()
+    {
+        Collider2D ringCollider = Physics2D.OverlapCircle(transform.position, _ringCheckRadius, _ringLayer);
+
+        if (ringCollider != null && ringCollider.transform != _currentRing)
+        {
+            _currentRing = ringCollider.transform;
+            transform.position = _currentRing.position;
+            transform.SetParent(_currentRing);
+
+            // 수정된 부분: 조건문 추가
+            if (_isLaunched && _rigidbody.velocity.magnitude < 2f) // 속도가 거의 0일 때만 _isLaunched를 false로 변경
             {
-                Shot();
+                _rigidbody.velocity = Vector2.zero;
+                _isLaunched = false;
             }
-            _lineRenderer.enabled = false; // 라인 렌더러 비활성화
+        }
+        else if (ringCollider == null && !_isLaunched)
+        {
+            GameOverEvent?.Invoke();
+            Destroy(gameObject); // 링에서 벗어나면 게임 오버
         }
     }
 
-    private void DragCount()
+    private void CheckScreenBounds()
     {
-        Vector3 currentPos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
-        currentPos.z = 0f; // Z축 값 고정
+        Vector3 screenPosition = Camera.main.WorldToViewportPoint(transform.position);
 
-        NowPower = (currentPos - _startPos).magnitude;
-        _dir = -(currentPos - _startPos).normalized; // 방향 벡터 계산
-
-        // 예상 이동 거리 계산
-        float predictedDistance = CalculatePredictedDistance(NowPower);
-
-        // 라인 렌더러 업데이트
-        _lineRenderer.SetPosition(0, transform.position);
-        _lineRenderer.SetPosition(1, transform.position + _dir * predictedDistance);
-
-        //카메라 줌 (부드럽게)
-        _camCompo.orthographicSize = Mathf.Lerp(_camCompo.orthographicSize, (5 / NowPower), Time.deltaTime * _smoothSpeed);
+        if (screenPosition.x < 0 || screenPosition.x > 1 || screenPosition.y < 0 || screenPosition.y > 1)
+        {
+            GameOverEvent?.Invoke();
+            Destroy(gameObject); // 화면 밖으로 나가면 게임 오버
+        }
     }
 
-    private void Shot()
+    private void OnDrawGizmosSelected()
     {
-        _rb.AddForce(_dir * NowPower, ForceMode2D.Impulse);
-        NowPower = 0; // 파워 초기화
-        _isMoving = true; // 움직임 시작
-    }
-
-    // 예상 이동 거리 계산 함수
-    private float CalculatePredictedDistance(float power)
-    {
-        // 여기에 실제 물리 계산을 적용하여 예상 이동 거리를 계산합니다.
-        // 현재는 단순히 power 값을 그대로 반환합니다.
-        // 실제 게임에서는 질량, 마찰, 중력 등을 고려하여 계산해야 합니다.
-        return power;
+        Gizmos.color = Color.yellow;
+        Gizmos.DrawWireSphere(transform.position, _ringCheckRadius);
     }
 }
